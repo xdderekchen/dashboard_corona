@@ -6,7 +6,7 @@ The data source is updated daily.
 In here, we use the R shiny technology to present data for a tutorial purpose.
 
 ## Steps:
-### 1. Data Imports from github
+### 1. Data Import from github
 
 ```{r}
 library(httr)
