@@ -10,8 +10,7 @@ In here, we use the R shiny technology to present data for a tutorial purpose.
 ### 1. Data Import from github
 
 ```{r}
-library(httr)
 
 github_path <-"https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv"
-data <- read.csv(text=GET(github_path), skip=7, header=T)
+data <- read.csv(github_path, header=T)
 ```
