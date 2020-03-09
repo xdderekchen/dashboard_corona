@@ -20,17 +20,14 @@ source("./data.R")
 global_data <- get_init_data()
 last_date = global_data[["lastdate"]]
 
-
-
 ui <- dashboardPage(
+   
     dashboardHeader(title = "Dashboard for Coronavirus",  titleWidth = 300),
     dashboardSidebar(disable = TRUE),
     
     body=  dashboardBody(
-        tags$div(
-            tags$a(href="https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data/csse_covid_19_time_series", 
-                   "Live Data from Johns Hopkins - Whiting School of Engineering: https://raw.githubusercontent.com/CSSEGISandData")
-        ),
+        tags$head(includeHTML("google-analytics.html")),
+        
         fluidRow(
             column(width=6,
                 tags$div(tags$h2(paste("last updated:", as.character(last_date))))),
@@ -62,6 +59,10 @@ ui <- dashboardPage(
                
                 leafletOutput("mymap", width = "100%", height = 300)
             )
+        ),
+        tags$div(
+            tags$a(href="https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data/csse_covid_19_time_series", 
+                   "Live Data from Johns Hopkins - Whiting School of Engineering: https://raw.githubusercontent.com/CSSEGISandData")
         )
    )
 )

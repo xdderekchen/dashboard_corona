@@ -88,7 +88,7 @@ get_top_country <- function(data0)
    date0 =  max(data0$date)
    lastdata = data0[data0$date==date0, ]
    lastdata <- lastdata %>% group_by(country) %>% summarise(value = sum(value))
-   print(lastdata)
+   #print(lastdata)
    mt <- lastdata[order(lastdata$value,decreasing = T ), ]
    return (paste(mt$country[1:30], "-",  mt$value[1:30]))
    
