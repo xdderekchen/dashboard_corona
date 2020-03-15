@@ -1,0 +1,19 @@
+MD,Anne Arundel,2
+MD,Baltimore City,1
+MD,Baltimore County,3
+MD,Carroll,3
+MD,Charles,1
+MD,Harford,2
+MD,Prince George's,9
+MD,Montgomery,12
+VA,Fairfax, 10
+VA,James City,8
+VA,Arlington,8
+VA,Loudoun,5
+VA,Virginia Beach,4
+VA,Prince William,3
+VA,Alexandria,2
+VA,Spotsylvania,1
+VA,Prince Edward,1
+VA,Chesterfield,1
+VA,Harrisonburg,1
