@@ -107,7 +107,7 @@ get_daily_data_US <- function(all_daily_data)
    USData$Updated = sapply(USData$Updated,  function(x) paste(format(as.Date(x), "%m-%d"), strsplit(x, split=" ")[[1]][2]))
    return (USData)
 }
-#  get_daily_data_US(get_daily_data()[[2]]) ->A
+#  get_daily_data_US(get_daily_data()[[3]]) ->A
 
 
 get_daily_data_world <- function(all_daily_data)
@@ -523,10 +523,30 @@ get_test_data <- function()
 # get_test_data()
 
 get_default_value <- function(daily_data) {
-   daily_data %>% filter(Province_State %in% c("District of Columbia", "Maryland", "Virginia")) -> BB
-   return (list(setNames(BB$Confirmed, BB$Province_State), setNames(BB$Deaths, BB$Province.State)))
+   daily_data %>% filter(Province_State %in% c("District of Columbia", "Maryland", "Virginia")) %>%
+      group_by(Province_State) %>%
+      summarise(Confirmed = sum(Confirmed), 
+                Deaths= sum(Deaths)) ->BB
+     
+   
+   
+   
+   return (list(setNames(BB$Confirmed, BB$Province_State), setNames(BB$Deaths, BB$Province_State)))
 }
 
+testme <- function()
+{
+    G <- global_data_daily[[2]]
+    G3 <- global_data_daily[[3]]
+    
+    G %>% filter(Province_State %in% c("District of Columbia", "Maryland", "Virginia")) -> BB
+    G3 %>% filter(Province_State %in% c("District of Columbia", "Maryland", "Virginia")) -> BB3
+    
+    archiveData <- get_default_value(G)
+    archivePre3days <- get_default_value(G3)
+    
+    testData    <- get_test_data()
+}
 
 #get_default_value(get_daily_data()[[3]])
 
