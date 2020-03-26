@@ -3,14 +3,16 @@ library(tidyr)
 library(reshape2)
 library(dplyr)
    
-   
+#county GPS: https://en.wikipedia.org/wiki/User:Michael_J/County_table
+
+
 get_daily_data <- function()
 {
+   hitbub_root = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports"
    today = Sys.Date()
    yesterday = today - 1
    todayStr <- format(today, "%m-%d-%Y")
    yesterdayStr <- format(yesterday, "%m-%d-%Y")
-   hitbub_root = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports"
    todayPath <- file.path(hitbub_root, paste0(todayStr, ".csv"))
    yesPath   <- file.path(hitbub_root, paste0(yesterdayStr, ".csv")  )
    thedate = today
@@ -45,26 +47,64 @@ get_daily_data <- function()
       )
       thedate = yesterday
    }
-   return (list(date=thedate, data=a))                      
+   #names(a)[1] <- 'Province.State'
+   
+   pre3days <- thedate - 3
+   b <- tryCatch(
+      {
+         pre3daystr <- format(pre3days, "%m-%d-%Y")
+         pre3dayPath   <- file.path(hitbub_root, paste0(pre3daystr, ".csv")  )
+         
+         b0 <- read.csv(pre3dayPath, header=T, stringsAsFactors = F)
+         if ("Country.Region" %in% names(b0) ) {
+            names(b0)[names(b0)=="Country.Region"] <- "Country_Region"
+         }
+         if ("Province.State" %in% names(b0) ) {
+            names(b0)[names(b0)=="Province.State"] <- "Province_State"
+         }
+         b0
+      },
+      error=function(cond) {
+         return (NA)
+      },
+      warning=function(cond) {
+         return (NA)
+      }
+   )
+   
+   
+   return (list(date=thedate, data=a, data3=b))                      
 }
 
-
+# get_daily_data()[[3]] ->A 
 
 get_daily_data_US <- function(all_daily_data)
 {
-   all_daily_data %>% filter(Country.Region == "US") -> USData
+   USData <- all_daily_data %>% filter(Country_Region == "US") 
    
    USDataTotle <- USData %>% summarise(Confirmed = sum(Confirmed), 
                                        Deaths= sum(Deaths), 
                                        Recovered= sum(Recovered), 
-                                       Updated = max(Last.Update)) %>% mutate(State = "ALL") %>% 
+                                       Updated = max(Last_Update)) %>% mutate(State = "USA") %>% 
                                select(State,  Confirmed, Deaths, Recovered, Updated)
-   bind_rows(USDataTotle,
-             USData %>% select(State=Province.State,Confirmed, Deaths, Recovered, Updated = Last.Update)
-   ) -> USData
+   
+   STATEDataTotle <- USData %>% group_by(Province_State) %>%
+                         summarise(Confirmed = sum(Confirmed), 
+                                       Deaths= sum(Deaths), 
+                                       Recovered= sum(Recovered), 
+                                       Updated = max(Last_Update)) %>% mutate(State = Province_State) %>% 
+      select(State,  Confirmed, Deaths, Recovered, Updated) %>% arrange(desc(Confirmed))
+   
+   
+   USData <- bind_rows(USDataTotle,STATEDataTotle)
+   USData %>% mutate(Confirmed = format(Confirmed, big.mark=',', scientific=FALSE)  ,
+          Deaths = format(Deaths, big.mark=',', scientific=FALSE) , 
+          Recovered = format(Recovered, big.mark=',', scientific=FALSE)) %>%
+     select(State,Confirmed, Deaths, Recovered, Updated ) -> USData
+      
    rownames(USData) <- USData$State
    USData$State <- NULL
-   USData$Updated = sapply(USData$Updated,  function(x) paste(format(as.Date(x), "%m-%d"), strsplit(x, split="T")[[1]][2]))
+   USData$Updated = sapply(USData$Updated,  function(x) paste(format(as.Date(x), "%m-%d"), strsplit(x, split=" ")[[1]][2]))
    return (USData)
 }
 #  get_daily_data_US(get_daily_data()[[2]]) ->A
@@ -75,25 +115,36 @@ get_daily_data_world <- function(all_daily_data)
    world <- all_daily_data %>% summarise(Confirmed = sum(Confirmed), 
                                 Deaths= sum(Deaths), 
                                 Recovered= sum(Recovered), 
-                                Updated = max(Last.Update)) %>% 
-                  mutate(Region = "World") %>% select(Region,  Confirmed, Deaths, Recovered, Updated)
+                                Updated = max(Last_Update)) %>% 
+                  mutate(Region = "World") %>% 
+      mutate(Confirmed = format(Confirmed, big.mark=',', scientific=FALSE)  ,
+             Deaths = format(Deaths, big.mark=',', scientific=FALSE) , 
+             Recovered = format(Recovered, big.mark=',', scientific=FALSE)) %>%
+      select(Region,  Confirmed, Deaths, Recovered, Updated)
   
-   all_daily_data %>% group_by(Country.Region) %>% summarise(Confirmed = sum(Confirmed), 
+   all_daily_data %>% group_by(Country_Region) %>% summarise(Confirmed = sum(Confirmed), 
                                                           Deaths= sum(Deaths), 
                                                           Recovered= sum(Recovered), 
-                                                          Updated = max(Last.Update)) %>% 
-                                                select(Region= Country.Region,  Confirmed, Deaths, Recovered, Updated) -> aggregated
+                                                          Updated = max(Last_Update)) %>% 
+                                               mutate(Confirmed = format(Confirmed, big.mark=',', scientific=FALSE)  ,
+                                                          Deaths = format(Deaths, big.mark=',', scientific=FALSE) , 
+                                                          Recovered = format(Recovered, big.mark=',', scientific=FALSE)) %>%
+                                                select(Region= Country_Region,  
+                                                       Confirmed ,
+                                                       Deaths, 
+                                                       Recovered , 
+                                                       Updated) -> aggregated
    #print(lastdata)
    mt <- aggregated[order(aggregated$Confirmed,decreasing = T ), ]
-   china <- mt %>% filter(Region == "Mainland China")
+   #china <- mt %>% filter(Region == "Mainland China")
    canada <- mt %>% filter(Region == "Canada")
    top5 <- mt %>% filter(!(Region %in% c("Canada", "Mainland China", "US")))
    top5 <- top5[1:5,]
-   world = bind_rows(world, china, canada, top5)
+   world = bind_rows(world,   top5, canada)
    
    rownames(world) <- world$Region
    world$Region <- NULL
-   world$Updated = sapply(world$Updated,  function(x) paste(format(as.Date(x), "%m-%d"), strsplit(x, split="T")[[1]][2]))
+   world$Updated = sapply(world$Updated,  function(x) paste(format(as.Date(x), "%m-%d"), strsplit(x, split=" ")[[1]][2]))
    return (world)
    
 }
@@ -130,12 +181,56 @@ get_init_data <- function()
    d = get_convert_wide_to_long(d)
    r = get_convert_wide_to_long(r)
    lastDate = max(c$date)
-
+  
    
    return (list(lastdate= lastDate, confirm = c,death = d, recovered = r))
    
 }
-get_init_data()[[2]] -> AAA
+
+save_init_data <- function()
+{
+   allData <- get_init_data()
+  
+   c = allData[[2]] %>% select(country, region, Lat, Long, date, confirmed = value)
+   d = allData[[3]] %>% select(country, region, date, death = value)
+   r = allData[[4]] %>% select(country, region, date, recovered = value)
+  
+   n = inner_join(c, d, by = c("country", "region", "date"), copy = FALSE)
+   n = inner_join(n, r, by = c("country", "region", "date"), copy = FALSE)
+   write.table(n, "jhv_data.csv", row.names = F, sep=",")
+   return (n)
+   
+}
+
+# save_init_data() -> A
+
+get_data_sinceXcases <- function( X=100, top=50, inputdata=NULL)
+{
+   allData <- inputdata
+   
+   if (is.null(allData))
+   {
+      allData <- get_init_data()
+   }
+   #X = 100
+   c = allData[[2]] %>% group_by(country, date) %>% summarise(confirmed = sum(value)) %>% filter(confirmed >=X, country != 'Cruise Ship') %>%
+             arrange(country, date) %>%  group_by(country) %>% mutate(tsX = row_number()) 
+   
+   TOPXCountry <- c %>% group_by(country) %>% summarise(confirmed = max(confirmed)) %>% arrange( desc(confirmed)) %>% top_n(top) %>% 
+      select(country)
+   
+   #d = allData[[3]] %>% group_by(country, date) %>% summarise(death = sum(value)) 
+   #r = allData[[4]] %>% group_by(country, date) %>% summarise(recovered = sum(value)) 
+   n = inner_join(c, TOPXCountry, by = c("country"), copy = FALSE)
+   #n = inner_join(n, d, by = c("country", "date"), copy = FALSE)
+   #n = inner_join(n, r, by = c("country", "date"), copy = FALSE)
+   n <- n %>% arrange(country, date)  %>% select(country, tsX, confirmed) %>% spread(country, confirmed) %>% as.data.frame()
+   return (list(lastdate= allData[[1]], data=n, numCountries=top, tsX = X))
+   
+}
+
+
+### A <- get_data_sinceXcases(100,5)[["data"]]
 
 get_last_value <- function(data0, country, date0)
 {
@@ -147,7 +242,6 @@ get_last_value <- function(data0, country, date0)
    r = lastdata  %>% summarise(total = sum(value))
    
    return ( r[1,1])
-   
 }
 
 get_map_data <- function(country,data0, date0)
@@ -196,14 +290,16 @@ library(gdata)
 
 get_State_CDC_URL <- function()
 {
+   
    str <- "REGION,URL
 DC,https://coronavirus.dc.gov/page/coronavirus-data
-MD,https://phpa.health.maryland.gov/Pages/Novel-coronavirus.aspx
+MD0,https://phpa.health.maryland.gov/Pages/Novel-coronavirus.aspx
+MD,https://coronavirus.maryland.gov/
 VA,http://www.vdh.virginia.gov/surveillance-and-investigation/novel-coronavirus/
 CHINA,http://weekly.chinacdc.cn/news/TrackingtheEpidemic.htm"
    return (read.csv(text=str, stringsAsFactors = F))
 }
-
+###get_DC("https://coronavirus.dc.gov/page/coronavirus-data")
 get_DC <- function(DC_URL)
 {
   
@@ -211,7 +307,7 @@ get_DC <- function(DC_URL)
   {
    raw_data <- xml2::read_html(DC_URL)
    data <- raw_data %>% html_nodes("p")
-   print(xml_text(data[2]))
+   #print(xml_text(data[2]))
    updated_DateTime <- xml_text(data)
    
    contents <- raw_data %>% html_nodes("ul") %>%  html_nodes("li") %>% html_text(trim = TRUE)
@@ -232,7 +328,9 @@ get_DC <- function(DC_URL)
          {
             positiveCount = trim( strsplit(newline, split=":")[[1]][2])
             #print(positiveCount)
+            break
          }
+         
       }
    }
    #return (read.csv(text=line, header=F, sep= ":", col.names = c("category", "count"), stringsAsFactors=FALSE))
@@ -243,10 +341,10 @@ get_DC <- function(DC_URL)
                                    stringsAsFactors=FALSE)))
   },
   error=function(cond) {
-     return (NA)
+     return (list())
   },
   warning=function(cond) {
-     return (NA)
+     return (list())
   })
 }
 #   get_DC()
@@ -255,13 +353,14 @@ get_DC <- function(DC_URL)
 
 get_MD <- function(MD_URL)
 {
+  
+   
    tryCatch(
       {
    #MD_URL = "https://phpa.health.maryland.gov/Pages/Novel-coronavirus.aspx"
+   # MD_URL = "https://coronavirus.maryland.gov/"
    raw_data <- xml2::read_html(MD_URL)
    
-   contents <- raw_data %>% html_nodes("div") 
-
    line = NA
    positiveCount = 0
    for (i in seq_along(contents))
@@ -290,10 +389,10 @@ get_MD <- function(MD_URL)
                                    stringsAsFactors=FALSE)))
       },
    error=function(cond) {
-      return (NA)
+      return (list())
    },
    warning=function(cond) {
-      return (NA)
+      return(list())
    })
   # return (read.csv(text=line, header=F, sep= ":", col.names = c("category", "value"), stringsAsFactors=FALSE))
 }
@@ -337,10 +436,10 @@ get_VA <- function(VA_URL)
                                    stringsAsFactors=FALSE)))
 },
 error=function(cond) {
-   return (NA)
+   return (list())
 },
 warning=function(cond) {
-   return (NA)
+   return (list())
 })
 }
 #VA_URL = "http://www.vdh.virginia.gov/surveillance-and-investigation/novel-coronavirus/"
@@ -413,6 +512,26 @@ get_China <- function()
    }
 }
 
+get_test_data <- function()
+{
+  
+   test_data = read.csv("https://raw.githubusercontent.com/xdderekchen/dashboard_corona/master/x.txt", header=FALSE, stringsAsFactors = F)
+   #return (test_data)  
+   return (list(confirmed = setNames(test_data$V2, test_data$V1), Death =  setNames(test_data$V3, test_data$V1)))
+}
+
+# get_test_data()
+
+get_default_value <- function(daily_data) {
+   daily_data %>% filter(Province_State %in% c("District of Columbia", "Maryland", "Virginia")) -> BB
+   return (list(setNames(BB$Confirmed, BB$Province_State), setNames(BB$Deaths, BB$Province.State)))
+}
+
+
+#get_default_value(get_daily_data()[[3]])
+
+#get_test_data() -> A
+#A["VD"] 
 
 #  get_China()
 
@@ -444,5 +563,4 @@ get_China <- function()
 #}
 
 ### get_VA()
-
 
