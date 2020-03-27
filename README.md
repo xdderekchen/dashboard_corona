@@ -4,6 +4,7 @@ These applications provide real time status of COVID-19 pandemic around world.
  
   * (Local View) : https://dxdinfo.shinyapps.io/DMV_Corona/ (pulling data from CDC sites of DC, MD and VA)
   * (Global View): https://dxdinfo.shinyapps.io/Coronavirus_stat/     (pulling data from John Hopkins)
+  * (Growth Rate after 100 cases): https://dxdinfo.shinyapps.io/COVID_Model/
  
 **Data Source** *(Johns Hopkins - Whiting School of Engineering)*: https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data/csse_covid_19_time_series 
 
